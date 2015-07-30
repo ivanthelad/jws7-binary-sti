@@ -13,6 +13,27 @@ DATA_DIR=${DATA_DIR-$JBOSS_HOME/data}
 # the subdirectory within LOCAL_SOURCE_DIR from where we should copy build
 # artifacts (*.war, *.jar)
 ARTIFACT_DIR=${ARTIFACT_DIR-target}
+## proxy config, injected as otherwise theres a lot of hacking if nothing is required.. eg remove place holders , setting active 
+CONTENT="<proxies> 
+    <proxy>
+      <id>myproxy</id>
+      <active>true</active>
+      <protocol>http</protocol>
+      <host>${CUSTOM_PROXY_HOST}</host>
+      <port>${CUSTOM_PROXY_PORT}</port>
+       <password>${CUSTOM_PROXY_PASSWORD}</password>
+       <username>${CUSTOM_PROXY_USER}</username>
+    </proxy>
+        <proxy>
+      <id>myproxy2</id>
+      <active>true</active>
+      <protocol>https</protocol>
+      <host>${CUSTOM_PROXY_HOST}</host>
+      <port>${CUSTOM_PROXY_PORT}</port>
+       <password>${CUSTOM_PROXY_PASSWORD}</password>
+       <username>${CUSTOM_PROXY_USER}</username>
+    </proxy>
+  </proxies>"
 
 function copy_artifacts() {
   if [ -d $LOCAL_SOURCE_DIR/$1 ]; then
@@ -34,7 +55,13 @@ if [ -f "$LOCAL_SOURCE_DIR/pom.xml" ]; then
   fi
 
   echo "Found pom.xml... attempting to build with 'mvn -e ${MAVEN_ARGS}'"
-
+   if [ -z "$CUSTOM_PROXY_PORT" ] || [ -z "$CUSTOM_PROXY_HOST" ]; then
+   echo "No proxy setting configured. CUSTOM_PROXY_HOST and CUSTOM_PROXY_PORT are required as env variables. Maven will not be configured for a proxy. "  
+   else
+    echo using proxy environment variables 
+      C=$(echo $CONTENT | sed 's/\//\\\//g')
+      sed -i -- "/<profiles>/ s/.*/${C}&/" /home/jboss/.m2/settings.xml
+  fi
   echo "Using $(mvn --version)"
 
   # Execute the actual build
@@ -62,16 +89,23 @@ if [ -f "$LOCAL_SOURCE_DIR/pom.xml" ]; then
   fi
 
   # clean up after maven
-  mvn -e -Dcom.redhat.xpaas.repo.redhatga clean
-  if [ -d "$HOME/.m2/repository" ]; then
-    rm -r "$HOME/.m2/repository"
-  fi
+      mvn -e -Dcom.redhat.xpaas.repo.redhatga clean
+
+  if [ -z "$KEEP_DEPS" ]; then
+    echo "removing dependencies. no found environment variable KEEP_DEPS=$KEEP_DEPS"
+    if [ -d "$HOME/.m2/repository" ]; then
+      rm -r "$HOME/.m2/repository"
+    fi
+  else
+    echo "Keeping dependencies. no found environment variable KEEP_DEPS=$KEEP_DEPS"
+fi
 
   popd &> /dev/null
 fi
 
  ## copy from root directory any artefacts 
-  copy_artifacts "$LOCAL_SOURCE_DIR"
+ ## if any artefacts exist in the  root dir
+copy_artifacts "$LOCAL_SOURCE_DIR"
 
 copy_artifacts "deployments"
 
