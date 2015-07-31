@@ -6,7 +6,6 @@
             "iconClass" : "icon-tomcat",
             "description": "Docker Builder. for pointing towards a githiub and building images ",
               "tags": "instant-app,tomcat"
-
         },
         "name": "basic-jws-ti-builder"
     },
@@ -66,7 +65,23 @@
             "description": "Proxy Port, required for github pulls or maven dependencies.  To function applications must include the custom assemble script https://github.com/ivanthelad/openshift-jee-sample/blob/master/.sti/bin/assemble",
             "name": "CUSTOM_PROXY_PORT",
             "value": ""
-        }
+        },
+ {
+  "description": "Proxy pass, required for github pulls or maven dependencies.  To function applications must include the custom assemble script https://github.com/ivanthelad/openshift-jee-sample/blob/master/.sti/bin/assemble",
+            "name": "CUSTOM_PROXY_PASSWORD",
+            "value": ""
+
+        },
+ {
+  "description": "Proxy user, required for github pulls or maven dependencies.  To function applications must include the custom assemble script https://github.com/ivanthelad/openshift-jee-sample/blob/master/.sti/bin/assemble",
+            "name": "CUSTOM_PROXY_USER",
+                "value" : ""
+},
+{
+  "description": "if set then maven deps will be removed. i think, or it could be ther other way around. i'm not sure",
+            "name": "NODEPS",
+                "value" : ""
+}
     ],
     "objects": [
     {
@@ -100,7 +115,7 @@
                 "strategy": {
                     "type": "Docker",
                     "dockerStrategy": {
-                        "forcePull": true
+                        "forcePull": true,
                         "from": {
                             "kind": "ImageStreamTag",
                             "namespace":"openshift",
@@ -115,6 +130,19 @@
                     {
                         "name": "CUSTOM_PROXY_PORT",
                         "value": "${CUSTOM_PROXY_PORT}"
+                    },
+
+                    {
+                        "name": "CUSTOM_PROXY_USER",
+                        "value": "${CUSTOM_PROXY_USER}"
+                    },
+                    {
+                        "name": "CUSTOM_PROXY_PASSWORD",
+                        "value": "${CUSTOM_PROXY_PASSWORD}"
+                    },
+                    {
+                        "name": "NODEPS",
+                        "value": "${NODEPS}"
                     }
                    
                 ]
