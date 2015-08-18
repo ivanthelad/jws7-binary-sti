@@ -4,41 +4,15 @@
 LOCAL_SOURCE_DIR=${HOME}/source
 mkdir -p $LOCAL_SOURCE_DIR
 
-# Resulting WAR files will be deployed to /opt/eap/standalone/deployments
-DEPLOY_DIR=$JBOSS_HOME/standalone/deployments
+DEPLOY_DIR=$JWS_HOME/webapps
 
-# JBoss AS data dir. Can be overridden.
-DATA_DIR=${DATA_DIR-$JBOSS_HOME/data}
-
-# the subdirectory within LOCAL_SOURCE_DIR from where we should copy build
-# artifacts (*.war, *.jar)
+# the subdirectory within LOCAL_SOURCE_DIR from where we should copy build artifacts
 ARTIFACT_DIR=${ARTIFACT_DIR-target}
-## proxy config, injected as otherwise theres a lot of hacking if nothing is required.. eg remove place holders , setting active 
-CONTENT="<proxies> 
-    <proxy>
-      <id>myproxy</id>
-      <active>true</active>
-      <protocol>http</protocol>
-      <host>${CUSTOM_PROXY_HOST}</host>
-      <port>${CUSTOM_PROXY_PORT}</port>
-       <password>${CUSTOM_PROXY_PASSWORD}</password>
-       <username>${CUSTOM_PROXY_USER}</username>
-    </proxy>
-        <proxy>
-      <id>myproxy2</id>
-      <active>true</active>
-      <protocol>https</protocol>
-      <host>${CUSTOM_PROXY_HOST}</host>
-      <port>${CUSTOM_PROXY_PORT}</port>
-       <password>${CUSTOM_PROXY_PASSWORD}</password>
-       <username>${CUSTOM_PROXY_USER}</username>
-    </proxy>
-  </proxies>"
 
 function copy_artifacts() {
   if [ -d $LOCAL_SOURCE_DIR/$1 ]; then
-    echo "Copying all WAR and EAR artifacts from $LOCAL_SOURCE_DIR/$1 directory into $DEPLOY_DIR for later deployment..."
-    cp -v $LOCAL_SOURCE_DIR/$1/*.jar $LOCAL_SOURCE_DIR/$1/*.war $LOCAL_SOURCE_DIR/$1/*.ear $DEPLOY_DIR 2> /dev/null
+    echo "Copying all WAR artifacts from $LOCAL_SOURCE_DIR/$1 directory into $DEPLOY_DIR for later deployment..."
+    cp -v $LOCAL_SOURCE_DIR/$1/*.war $DEPLOY_DIR 2> /dev/null
   fi
 }
 
@@ -55,14 +29,9 @@ if [ -f "$LOCAL_SOURCE_DIR/pom.xml" ]; then
   fi
 
   echo "Found pom.xml... attempting to build with 'mvn -e ${MAVEN_ARGS}'"
-   if [ -z "$CUSTOM_PROXY_PORT" ] || [ -z "$CUSTOM_PROXY_HOST" ]; then
-   echo "No proxy setting configured. CUSTOM_PROXY_HOST and CUSTOM_PROXY_PORT are required as env variables. Maven will not be configured for a proxy. "  
-   else
-    echo using proxy environment variables 
-      C=$(echo $CONTENT | sed 's/\//\\\//g')
-      sed -i -- "/<profiles>/ s/.*/${C}&/" /home/jboss/.m2/settings.xml
-  fi
-  echo "Using $(mvn --version)"
+
+  echo "Maven version:"
+  mvn --version
 
   # Execute the actual build
   mvn -e $MAVEN_ARGS
@@ -73,50 +42,30 @@ if [ -f "$LOCAL_SOURCE_DIR/pom.xml" ]; then
     exit $ERR
   fi
 
-
   # Copy built artifacts (if any!) from the target/ directory
-  # (or $ARTIFACT_DIR if specified)
-  # to the $JBOSS_HOME/standalone/deployments/ directory for
-  # later deployment
+  # to the $DEPLOY_DIR directory for later deployment
   copy_artifacts "$ARTIFACT_DIR"
 
-  # copy app data, if specified
-  if [ -n "${APP_DATADIR+_}" ] && [ -d "$LOCAL_SOURCE_DIR/$APP_DATADIR" ]; then
-    echo "Copying app data to $DATA_DIR..."
-    src="$LOCAL_SOURCE_DIR/$APP_DATADIR"
-    [ -d "$DATA_DIR" ] && src="$src/*" # avoid glob if possible
-    cp -av "$src" "$DATA_DIR"
-  fi
-
   # clean up after maven
-      mvn -e -Dcom.redhat.xpaas.repo.redhatga clean
-
-  if [ -z "$KEEP_DEPS" ]; then
-    echo "removing dependencies. no found environment variable KEEP_DEPS=$KEEP_DEPS"
-    if [ -d "$HOME/.m2/repository" ]; then
-      rm -r "$HOME/.m2/repository"
-    fi
-  else
-    echo "Keeping dependencies. no found environment variable KEEP_DEPS=$KEEP_DEPS"
-fi
+  mvn clean
+  if [ -d "$HOME/.m2/repository" ]; then
+    rm -r "$HOME/.m2/repository"
+  fi
 
   popd &> /dev/null
 fi
 
- ## copy from root directory any artefacts 
- ## if any artefacts exist in the  root dir
-copy_artifacts "$LOCAL_SOURCE_DIR"
-
+# Copy (probably binary) artifacts from the deployments/
+# directory to the $DEPLOY_DIR directory for later deployment
 copy_artifacts "deployments"
+
+
+echo " Doing a simple copy  - Custom code for binary deployment"
+  # Picks up WAR_FILE_URL from buildConfig
+echo ${WAR_FILE_URL}
+curl -o ${DEPLOY_DIR}/ROOT.war -O ${WAR_FILE_URL}
 
 if [ -d $LOCAL_SOURCE_DIR/configuration ]; then
   echo "Copying config files from project..."
-  cp -v $LOCAL_SOURCE_DIR/configuration/* $JBOSS_HOME/standalone/configuration/
+  cp -v $LOCAL_SOURCE_DIR/configuration/* $JWS_HOME/conf/
 fi
-
-if [ -d $LOCAL_SOURCE_DIR/modules ]; then
-  echo "Copying modules from project..."
-  cp -vr $LOCAL_SOURCE_DIR/modules/* $JBOSS_HOME/modules/
-fi
-
-exit 0
