@@ -63,7 +63,7 @@ copy_artifacts "deployments"
 echo " Doing a simple copy  - Custom code for binary deployment"
   # Picks up WAR_FILE_URL from buildConfig
 echo ${WAR_FILE_URL}
-curl -o ${DEPLOY_DIR}/ROOT.war -O ${WAR_FILE_URL}
+curl -O ${WAR_FILE_URL}
 
 if [ -d $LOCAL_SOURCE_DIR/configuration ]; then
   echo "Copying config files from project..."
